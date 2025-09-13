@@ -14,7 +14,7 @@ local authorizedUsers = {
     ["user123"] = true
 }
 local triggerCommand = "!say"
-local responseMessages = {"DRIX SCRIPT HUB ON TOP", "GET THE TRADE FREZZER BY DRIX SCRIPT", "FIND US ON TIKK-T0KK"}
+local responseMessages = {"DRIX SCRIPT HUB ON TOP", "GET THE TRADE FREZZER BY DRIX SCRIPT", "FIND US ON ANYWHERE"}
 local messageInterval = 5 -- seconds
 local maxMessages = 100
 
