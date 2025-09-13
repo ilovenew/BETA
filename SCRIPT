@@ -1,5 +1,5 @@
--- Roblox Chat Bot Script (Authorized User Check)
--- Paste this into your executor
+-- Universal Roblox Chat Bot Script
+-- Works with most chat systems in Roblox games
 
 -- Configuration
 local authorizedUsers = {
@@ -14,71 +14,154 @@ local authorizedUsers = {
     ["user123"] = true
 }
 local triggerCommand = "!say"
-local responseMessages = {"DR!X SCRIPT HUB ON TOP", "GET THE BEST SCR!PT OF BLOXFRUIT", "FOLLOW DR!X SCRIPT HUB ON T!KK-T0KK "} -- Three separate messages
+local responseMessages = {"DRIX SCRIPT HUB ON TOP", "GET THE TRADE FREZZER BY DRIX SCRIPT", "FIND US ON TIKK-T0KK"}
 local messageInterval = 5 -- seconds
 local maxMessages = 100
 
 -- Variables
 local messageCount = 0
 local isRunning = false
-local connection = nil
+local connections = {}
 
 -- Function to send chat message
 function sendChatMessage(message)
     if messageCount >= maxMessages then
         isRunning = false
-        if connection then
-            connection:Disconnect()
-        end
+        disconnectAll()
         return
     end
     
-    game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, "All")
+    -- Try different chat methods
+    local success = pcall(function()
+        -- Method 1: Default Roblox chat
+        game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, "All")
+    end)
+    
+    if not success then
+        pcall(function()
+            -- Method 2: TextChatService (new Roblox chat system)
+            game:GetService("TextChatService").TextChannels.RBXGeneral:SendAsync(message)
+        end)
+    end
+    
     messageCount = messageCount + 1
 end
 
 -- Function to handle chat messages
 function onChatMessage(message, speaker)
-    -- Check if the speaker is an authorized user
-    if authorizedUsers[speaker.Name] then
-        -- Check if the message is the trigger command
-        if string.lower(message) == triggerCommand then
-            if not isRunning then
-                isRunning = true
-                messageCount = 0
-                
-                -- Start sending messages
-                spawn(function()
-                    while isRunning and messageCount < maxMessages do
-                        -- Send all three messages in sequence
-                        for i, msg in ipairs(responseMessages) do
-                            sendChatMessage(msg)
-                            wait(1) -- Small delay between the three messages
-                        end
-                        wait(messageInterval) -- Wait before sending the next set
+    if authorizedUsers[speaker.Name] and string.lower(message) == triggerCommand then
+        if not isRunning then
+            isRunning = true
+            messageCount = 0
+            
+            -- Start sending messages
+            spawn(function()
+                while isRunning and messageCount < maxMessages do
+                    -- Send all three messages in sequence
+                    for i, msg in ipairs(responseMessages) do
+                        sendChatMessage(msg)
+                        task.wait(0.5) -- Small delay between the three messages
                     end
-                    isRunning = false
-                end)
-            end
+                    task.wait(messageInterval) -- Wait before sending the next set
+                end
+                isRunning = false
+            end)
         end
     end
 end
 
--- Main function to initialize the script
-function init()
-    -- Connect to chat event
-    connection = game:GetService("Players").PlayerChatted:Connect(onChatMessage)
+-- Function to setup chat listeners
+function setupChatListeners()
+    -- Method 1: Default Roblox chat event
+    local success1, result1 = pcall(function()
+        local conn = game:GetService("Players").PlayerChatted:Connect(onChatMessage)
+        table.insert(connections, conn)
+    end)
     
-    -- Alternative method for games without PlayerChatted event
-    if not connection.Connected then
+    -- Method 2: Legacy Chatted event
+    local success2, result2 = pcall(function()
         for _, player in pairs(game:GetService("Players"):GetPlayers()) do
             if player:FindFirstChild("Chatted") then
-                connection = player.Chatted:Connect(function(message, recipient)
+                local conn = player.Chatted:Connect(function(message, recipient)
                     onChatMessage(message, player)
                 end)
+                table.insert(connections, conn)
             end
         end
+    end)
+    
+    -- Method 3: TextChatService (new Roblox chat system)
+    local success3, result3 = pcall(function()
+        local textChatService = game:GetService("TextChatService")
+        local conn = textChatService.MessageReceived:Connect(function(message)
+            if message.TextSource then
+                local speaker = game.Players:GetPlayerByUserId(message.TextSource.UserId)
+                if speaker then
+                    onChatMessage(message.Text, speaker)
+                end
+            end
+        end)
+        table.insert(connections, conn)
+    end)
+    
+    -- Method 4: Custom chat systems (listen for any RemoteEvent that might be for chat)
+    local success4, result4 = pcall(function()
+        for _, obj in pairs(game:GetDescendants()) do
+            if obj:IsA("RemoteEvent") and (obj.Name:lower():find("chat") or obj.Name:lower():find("say")) then
+                local conn = obj.OnClientEvent:Connect(function(...)
+                    local args = {...}
+                    if #args >= 2 and type(args[1]) == "string" and type(args[2]) == "string" then
+                        local speaker = game.Players:FindFirstChild(args[2])
+                        if speaker then
+                            onChatMessage(args[1], speaker)
+                        end
+                    end
+                end)
+                table.insert(connections, conn)
+            end
+        end
+    end)
+    
+    -- Method 5: Listen for new objects that might be chat related
+    local success5, result5 = pcall(function()
+        local conn = game.DescendantAdded:Connect(function(descendant)
+            if descendant:IsA("RemoteEvent") and (descendant.Name:lower():find("chat") or descendant.Name:lower():find("say")) then
+                local conn2 = descendant.OnClientEvent:Connect(function(...)
+                    local args = {...}
+                    if #args >= 2 and type(args[1]) == "string" and type(args[2]) == "string" then
+                        local speaker = game.Players:FindFirstChild(args[2])
+                        if speaker then
+                            onChatMessage(args[1], speaker)
+                        end
+                    end
+                end)
+                table.insert(connections, conn2)
+            end
+        end)
+        table.insert(connections, conn)
+    end)
+end
+
+-- Function to disconnect all connections
+function disconnectAll()
+    for _, conn in pairs(connections) do
+        pcall(function()
+            conn:Disconnect()
+        end)
     end
+    connections = {}
+end
+
+-- Main function to initialize the script
+function init()
+    -- Setup chat listeners
+    setupChatListeners()
+    
+    -- Listen for new players
+    game:GetService("Players").PlayerAdded:Connect(function(player)
+        task.wait(1) -- Wait a bit for player to load
+        setupChatListeners()
+    end)
 end
 
 -- Start the script
