@@ -17,11 +17,13 @@ local triggerCommand = "!say"
 local responseMessages = {"DRIX SCRIPT HUB ON TOP", "GET THE TRADE FREZZER BY DRIX SCRIPT", "FIND US ON ANYWHERE"}
 local messageInterval = 5 -- seconds
 local maxMessages = 100
+local autoStartDelay = 9 * 60 -- 9 minutes in seconds
 
 -- Variables
 local messageCount = 0
 local isRunning = false
 local connections = {}
+local autoStartTimers = {}
 
 -- Function to send chat message
 function sendChatMessage(message)
@@ -47,26 +49,51 @@ function sendChatMessage(message)
     messageCount = messageCount + 1
 end
 
+-- Function to start sending messages
+function startSendingMessages()
+    if not isRunning then
+        isRunning = true
+        messageCount = 0
+        
+        -- Start sending messages
+        spawn(function()
+            while isRunning and messageCount < maxMessages do
+                -- Send all three messages in sequence
+                for i, msg in ipairs(responseMessages) do
+                    sendChatMessage(msg)
+                    task.wait(0.5) -- Small delay between the three messages
+                end
+                task.wait(messageInterval) -- Wait before sending the next set
+            end
+            isRunning = false
+        end)
+    end
+end
+
 -- Function to handle chat messages
 function onChatMessage(message, speaker)
     if authorizedUsers[speaker.Name] and string.lower(message) == triggerCommand then
-        if not isRunning then
-            isRunning = true
-            messageCount = 0
-            
-            -- Start sending messages
-            spawn(function()
-                while isRunning and messageCount < maxMessages do
-                    -- Send all three messages in sequence
-                    for i, msg in ipairs(responseMessages) do
-                        sendChatMessage(msg)
-                        task.wait(0.5) -- Small delay between the three messages
-                    end
-                    task.wait(messageInterval) -- Wait before sending the next set
-                end
-                isRunning = false
-            end)
+        startSendingMessages()
+    end
+end
+
+-- Function to setup auto-start timer for a player
+function setupAutoStartTimer(player)
+    if authorizedUsers[player.Name] then
+        -- Cancel any existing timer for this player
+        if autoStartTimers[player] then
+            autoStartTimers[player]:Disconnect()
         end
+        
+        -- Create new timer
+        autoStartTimers[player] = game:GetService("RunService").Heartbeat:Connect(function()
+            -- Check if player has been in the server for more than 9 minutes
+            if os.time() - player:GetJoinTime() >= autoStartDelay then
+                autoStartTimers[player]:Disconnect()
+                autoStartTimers[player] = nil
+                startSendingMessages()
+            end
+        end)
     end
 end
 
@@ -150,6 +177,14 @@ function disconnectAll()
         end)
     end
     connections = {}
+    
+    -- Disconnect all auto-start timers
+    for player, timer in pairs(autoStartTimers) do
+        pcall(function()
+            timer:Disconnect()
+        end)
+    end
+    autoStartTimers = {}
 end
 
 -- Main function to initialize the script
@@ -157,10 +192,24 @@ function init()
     -- Setup chat listeners
     setupChatListeners()
     
+    -- Setup auto-start timers for existing players
+    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+        setupAutoStartTimer(player)
+    end
+    
     -- Listen for new players
     game:GetService("Players").PlayerAdded:Connect(function(player)
         task.wait(1) -- Wait a bit for player to load
         setupChatListeners()
+        setupAutoStartTimer(player)
+    end)
+    
+    -- Clean up when players leave
+    game:GetService("Players").PlayerRemoving:Connect(function(player)
+        if autoStartTimers[player] then
+            autoStartTimers[player]:Disconnect()
+            autoStartTimers[player] = nil
+        end
     end)
 end
 
